@@ -6,15 +6,7 @@ pub trait Serialize {
 
 impl Serialize for Key {
     fn serialize(&self) -> Vec<u8> {
-        match self {
-            Key::SimpleString(s) => s.serialize(),
-            Key::SimpleError(s) => s.serialize(),
-            Key::Integer(s) => s.serialize(),
-            Key::BulkString(s) => s.serialize(),
-            Key::Null(s) => s.serialize(),
-            Key::Boolean(s) => s.serialize(),
-            Key::BulkError(s) => s.serialize(),
-        }
+        Resp::from(self.to_owned()).serialize()
     }
 }
 

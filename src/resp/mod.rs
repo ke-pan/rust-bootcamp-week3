@@ -1,9 +1,11 @@
+mod deserialize;
 mod serialize;
 
 use std::{
     collections::{BTreeMap, BTreeSet},
     ops::{Deref, DerefMut},
 };
+use thiserror::Error;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
 #[allow(dead_code)]
@@ -15,6 +17,40 @@ pub enum Key {
     BulkError(BulkError),
     Null(Null),
     Boolean(Boolean),
+}
+
+#[derive(Debug, Error)]
+#[error("Unsupported Key")]
+pub struct UnsupportedKey;
+
+impl TryFrom<Resp> for Key {
+    type Error = UnsupportedKey;
+    fn try_from(value: Resp) -> Result<Self, Self::Error> {
+        match value {
+            Resp::Boolean(v) => Ok(Key::Boolean(v)),
+            Resp::BulkString(v) => Ok(Key::BulkString(v)),
+            Resp::SimpleString(v) => Ok(Key::SimpleString(v)),
+            Resp::SimpleError(v) => Ok(Key::SimpleError(v)),
+            Resp::BulkError(v) => Ok(Key::BulkError(v)),
+            Resp::Integer(v) => Ok(Key::Integer(v)),
+            Resp::Null(v) => Ok(Key::Null(v)),
+            _ => Err(UnsupportedKey),
+        }
+    }
+}
+
+impl From<Key> for Resp {
+    fn from(value: Key) -> Self {
+        match value {
+            Key::Boolean(v) => Resp::Boolean(v),
+            Key::BulkString(v) => Resp::BulkString(v),
+            Key::SimpleString(v) => Resp::SimpleString(v),
+            Key::SimpleError(v) => Resp::SimpleError(v),
+            Key::BulkError(v) => Resp::BulkError(v),
+            Key::Integer(v) => Resp::Integer(v),
+            Key::Null(v) => Resp::Null(v),
+        }
+    }
 }
 
 #[allow(dead_code)]
@@ -52,6 +88,15 @@ pub struct SimpleError {
     value: String,
 }
 
+impl SimpleError {
+    #[allow(dead_code)]
+    pub fn new<T: Into<String>>(value: T) -> Self {
+        SimpleError {
+            value: value.into(),
+        }
+    }
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Integer {
     value: i64,
@@ -81,6 +126,20 @@ impl BulkString {
 #[derive(Debug, Default, Clone, PartialEq, PartialOrd)]
 pub struct Array {
     value: Vec<Resp>,
+}
+
+impl Deref for Array {
+    type Target = Vec<Resp>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+impl DerefMut for Array {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.value
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
