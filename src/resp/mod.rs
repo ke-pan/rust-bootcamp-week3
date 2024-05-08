@@ -1,13 +1,15 @@
 mod deserialize;
 mod serialize;
 
+pub use deserialize::RespDeserializeError;
+pub use serialize::Serialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
     ops::{Deref, DerefMut},
 };
 use thiserror::Error;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Debug, Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
 #[allow(dead_code)]
 pub enum Key {
     SimpleString(SimpleString),
@@ -69,7 +71,7 @@ pub enum Resp {
     Set(Set),
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SimpleString {
     value: String,
 }
@@ -83,7 +85,7 @@ impl SimpleString {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SimpleError {
     value: String,
 }
@@ -97,7 +99,7 @@ impl SimpleError {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Integer {
     value: i64,
 }
@@ -109,9 +111,9 @@ impl Integer {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BulkString {
-    value: String,
+    pub value: String,
 }
 
 impl BulkString {
@@ -142,10 +144,10 @@ impl DerefMut for Array {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Null {}
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Null;
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Boolean {
     value: bool,
 }
@@ -169,7 +171,7 @@ impl Double {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BulkError {
     value: String,
 }

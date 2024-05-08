@@ -1,5 +1,5 @@
 use super::*;
-use bytes::{Buf, Bytes};
+use bytes::{Buf, BytesMut};
 use std::str::from_utf8;
 use thiserror::Error;
 
@@ -15,12 +15,11 @@ pub enum RespDeserializeError {
     Utf8Error(#[from] std::str::Utf8Error),
 }
 
-impl TryFrom<Vec<u8>> for Resp {
+impl TryFrom<&mut BytesMut> for Resp {
     type Error = RespDeserializeError;
 
-    fn try_from(buf: Vec<u8>) -> Result<Resp, RespDeserializeError> {
-        let mut buf = buf.into();
-        let resp = _try_from(&mut buf)?;
+    fn try_from(buf: &mut BytesMut) -> Result<Resp, RespDeserializeError> {
+        let resp = _try_from(buf)?;
         if !buf.is_empty() {
             return Err(RespDeserializeError::WrongFormat);
         }
@@ -28,7 +27,7 @@ impl TryFrom<Vec<u8>> for Resp {
     }
 }
 
-fn _try_from(buf: &mut Bytes) -> Result<Resp, RespDeserializeError> {
+fn _try_from(buf: &mut BytesMut) -> Result<Resp, RespDeserializeError> {
     if buf.len() < 3 {
         return Err(RespDeserializeError::NotComplete);
     }
@@ -97,7 +96,7 @@ trait Deserialize {
     fn deserialize<'a>(&'a mut self, buf: &'a [u8]) -> Result<&[u8], RespDeserializeError>;
 }
 
-fn deserialize_simple_string(buf: &mut Bytes) -> Result<SimpleString, RespDeserializeError> {
+fn deserialize_simple_string(buf: &mut BytesMut) -> Result<SimpleString, RespDeserializeError> {
     let bytes = find_crlf(buf)?;
     match from_utf8(bytes.as_ref()) {
         Ok(s) => Ok(SimpleString::new(s)),
@@ -105,7 +104,7 @@ fn deserialize_simple_string(buf: &mut Bytes) -> Result<SimpleString, RespDeseri
     }
 }
 
-fn deserialize_simple_error(buf: &mut Bytes) -> Result<SimpleError, RespDeserializeError> {
+fn deserialize_simple_error(buf: &mut BytesMut) -> Result<SimpleError, RespDeserializeError> {
     let bytes = find_crlf(buf)?;
     match from_utf8(bytes.as_ref()) {
         Ok(s) => Ok(SimpleError::new(s)),
@@ -113,7 +112,7 @@ fn deserialize_simple_error(buf: &mut Bytes) -> Result<SimpleError, RespDeserial
     }
 }
 
-fn deserialize_map(buf: &mut Bytes) -> Result<Map, RespDeserializeError> {
+fn deserialize_map(buf: &mut BytesMut) -> Result<Map, RespDeserializeError> {
     let bytes = find_crlf(buf)?;
     let len = match from_utf8(bytes.as_ref()) {
         Ok(s) => s
@@ -132,7 +131,7 @@ fn deserialize_map(buf: &mut Bytes) -> Result<Map, RespDeserializeError> {
     Ok(map)
 }
 
-fn deserialize_integer(buf: &mut Bytes) -> Result<Integer, RespDeserializeError> {
+fn deserialize_integer(buf: &mut BytesMut) -> Result<Integer, RespDeserializeError> {
     let bytes = find_crlf(buf)?;
     match from_utf8(bytes.as_ref()) {
         Ok(s) => Ok(Integer::new(
@@ -143,7 +142,7 @@ fn deserialize_integer(buf: &mut Bytes) -> Result<Integer, RespDeserializeError>
     }
 }
 
-fn deserialize_bulk_string(buf: &mut Bytes) -> Result<BulkString, RespDeserializeError> {
+fn deserialize_bulk_string(buf: &mut BytesMut) -> Result<BulkString, RespDeserializeError> {
     let bytes = find_crlf(buf)?;
     let len = match from_utf8(bytes.as_ref()) {
         Ok(s) => s
@@ -165,7 +164,7 @@ fn deserialize_bulk_string(buf: &mut Bytes) -> Result<BulkString, RespDeserializ
     }
 }
 
-fn deserialize_null(buf: &mut Bytes) -> Result<Null, RespDeserializeError> {
+fn deserialize_null(buf: &mut BytesMut) -> Result<Null, RespDeserializeError> {
     if buf.len() < 2 {
         return Err(RespDeserializeError::NotComplete);
     }
@@ -176,7 +175,7 @@ fn deserialize_null(buf: &mut Bytes) -> Result<Null, RespDeserializeError> {
     Ok(Null {})
 }
 
-fn deserialize_boolean(buf: &mut Bytes) -> Result<Boolean, RespDeserializeError> {
+fn deserialize_boolean(buf: &mut BytesMut) -> Result<Boolean, RespDeserializeError> {
     let bytes = find_crlf(buf)?;
     if bytes.len() != 1 {
         return Err(RespDeserializeError::WrongFormat);
@@ -188,7 +187,7 @@ fn deserialize_boolean(buf: &mut Bytes) -> Result<Boolean, RespDeserializeError>
     }
 }
 
-fn deserialize_double(buf: &mut Bytes) -> Result<Double, RespDeserializeError> {
+fn deserialize_double(buf: &mut BytesMut) -> Result<Double, RespDeserializeError> {
     let bytes = find_crlf(buf)?;
     match from_utf8(bytes.as_ref()) {
         Ok(s) => Ok(Double::new(
@@ -199,7 +198,7 @@ fn deserialize_double(buf: &mut Bytes) -> Result<Double, RespDeserializeError> {
     }
 }
 
-fn deserialize_bulk_error(buf: &mut Bytes) -> Result<BulkError, RespDeserializeError> {
+fn deserialize_bulk_error(buf: &mut BytesMut) -> Result<BulkError, RespDeserializeError> {
     let bytes = find_crlf(buf)?;
     let len = match from_utf8(bytes.as_ref()) {
         Ok(s) => s
@@ -221,7 +220,7 @@ fn deserialize_bulk_error(buf: &mut Bytes) -> Result<BulkError, RespDeserializeE
     }
 }
 
-fn deserialize_array(buf: &mut Bytes) -> Result<Array, RespDeserializeError> {
+fn deserialize_array(buf: &mut BytesMut) -> Result<Array, RespDeserializeError> {
     let bytes = find_crlf(buf)?;
     let len = match from_utf8(bytes.as_ref()) {
         Ok(s) => s
@@ -237,7 +236,7 @@ fn deserialize_array(buf: &mut Bytes) -> Result<Array, RespDeserializeError> {
     Ok(array)
 }
 
-fn deserialize_set(buf: &mut Bytes) -> Result<Set, RespDeserializeError> {
+fn deserialize_set(buf: &mut BytesMut) -> Result<Set, RespDeserializeError> {
     let bytes = find_crlf(buf)?;
     let len = match from_utf8(bytes.as_ref()) {
         Ok(s) => s
@@ -257,7 +256,7 @@ fn deserialize_set(buf: &mut Bytes) -> Result<Set, RespDeserializeError> {
     Ok(set)
 }
 
-fn find_crlf(buf: &mut Bytes) -> Result<Bytes, RespDeserializeError> {
+fn find_crlf(buf: &mut BytesMut) -> Result<BytesMut, RespDeserializeError> {
     let i = buf
         .iter()
         .position(|&c| c == b'\r')
@@ -280,37 +279,44 @@ mod tests {
     #[test]
     fn test_deserialize_simple_string() {
         let buf: &[u8] = b"+OK\r\n";
-        let r = Resp::try_from(buf.to_vec()).unwrap();
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes).unwrap();
         assert_eq!(r, Resp::SimpleString(SimpleString::new("OK")));
 
         let buf: &[u8] = b"+OK\r";
-        let r = Resp::try_from(buf.to_vec());
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
 
         let buf: &[u8] = b"+OK\r\n+OK\r\n";
-        let r = Resp::try_from(buf.to_vec());
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
     }
 
     #[test]
     fn test_deserialize_simple_error() {
         let buf: &[u8] = b"-ERR\r\n";
-        let r = Resp::try_from(buf.to_vec()).unwrap();
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes).unwrap();
         assert_eq!(r, Resp::SimpleError(SimpleError::new("ERR")));
 
-        let buf = b"-ERR\r";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b"-ERR\r";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
 
-        let buf = b"-ERR\r\n+OK\r\n";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b"-ERR\r\n+OK\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
     }
 
     #[test]
     fn test_deserialize_map() {
-        let buf = b"%2\r\n+value1\r\n!5\r\nerror\r\n#t\r\n*0\r\n";
-        let r: Resp = buf.to_vec().try_into().unwrap();
+        let buf: &[u8] = b"%2\r\n+value1\r\n!5\r\nerror\r\n#t\r\n*0\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes).unwrap();
         let mut m = Map::default();
         m.insert(
             Key::SimpleString(SimpleString::new("value1")),
@@ -325,150 +331,179 @@ mod tests {
 
     #[test]
     fn test_deserialize_integer() {
-        let buf = b":123\r\n";
-        let r: Resp = buf.to_vec().try_into().unwrap();
+        let buf: &[u8] = b":123\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes).unwrap();
         assert_eq!(r, Resp::Integer(Integer::new(123)));
 
-        let buf = b":123\r";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b":123\r";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
 
-        let buf = b":123\r\n+OK\r\n";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b":123\r\n+OK\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
     }
 
     #[test]
     fn test_deserialize_bulk_string() {
-        let buf = b"$6\r\nfoobar\r\n";
-        let r: Resp = buf.to_vec().try_into().unwrap();
+        let buf: &[u8] = b"$6\r\nfoobar\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes).unwrap();
         assert_eq!(r, Resp::BulkString(BulkString::new("foobar")));
 
-        let buf = b"$6\r\nfoobar\r";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b"$6\r\nfoobar\r";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
 
-        let buf = b"$6\r\nfoobar\r\n+OK\r\n";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b"$6\r\nfoobar\r\n+OK\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
     }
 
     #[test]
     fn test_deserialize_null() {
-        let buf = b"_\r\n";
-        let r: Resp = buf.to_vec().try_into().unwrap();
+        let buf: &[u8] = b"_\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes).unwrap();
         assert_eq!(r, Resp::Null(Null {}));
 
-        let buf = b"_\r";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b"_\r";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
 
-        let buf = b"_\r\n+OK\r\n";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b"_\r\n+OK\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
     }
 
     #[test]
     fn test_deserialize_boolean() {
-        let buf = b"#t\r\n";
-        let r: Resp = buf.to_vec().try_into().unwrap();
+        let buf: &[u8] = b"#t\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes).unwrap();
         assert_eq!(r, Resp::Boolean(Boolean::new(true)));
 
-        let buf = b"#f\r\n";
-        let r: Resp = buf.to_vec().try_into().unwrap();
+        let buf: &[u8] = b"#f\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes).unwrap();
         assert_eq!(r, Resp::Boolean(Boolean::new(false)));
 
-        let buf = b"#t\r";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b"#t\r";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
 
-        let buf = b"#t\r\n+OK\r\n";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b"#t\r\n+OK\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
     }
 
     #[test]
     fn test_deserialize_double() {
-        let buf = b",123.45\r\n";
-        let r: Resp = buf.to_vec().try_into().unwrap();
+        let buf: &[u8] = b",123.45\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes).unwrap();
         assert_eq!(r, Resp::Double(Double::new(123.45)));
 
-        let buf = b",+1e9\r\n";
-        let r: Resp = buf.to_vec().try_into().unwrap();
+        let buf: &[u8] = b",+1e9\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes).unwrap();
         assert_eq!(r, Resp::Double(Double::new(1e9)));
 
-        let buf = b",-1.23e-9\r\n";
-        let r: Resp = buf.to_vec().try_into().unwrap();
+        let buf: &[u8] = b",-1.23e-9\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes).unwrap();
         assert_eq!(r, Resp::Double(Double::new(-1.23e-9)));
 
-        let buf = b",123.45\r";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b",123.45\r";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
 
-        let buf = b",123.45\r\n+OK\r\n";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b",123.45\r\n+OK\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
     }
 
     #[test]
     fn test_deserialize_bulk_error() {
-        let buf = b"!5\r\nerror\r\n";
-        let r: Resp = buf.to_vec().try_into().unwrap();
+        let buf: &[u8] = b"!5\r\nerror\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes).unwrap();
         assert_eq!(r, Resp::BulkError(BulkError::new("error")));
 
-        let buf = b"!5\r\nerror\r";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b"!5\r\nerror\r";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
 
-        let buf = b"!5\r\nerror\r\n+OK\r\n";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b"!5\r\nerror\r\n+OK\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
     }
 
     #[test]
     fn test_deserialize_array() {
-        let buf = b"*3\r\n+OK\r\n:123\r\n$6\r\nfoobar\r\n";
-        let r: Resp = buf.to_vec().try_into().unwrap();
+        let buf: &[u8] = b"*3\r\n+OK\r\n:123\r\n$6\r\nfoobar\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r: Resp = Resp::try_from(&mut bytes).unwrap();
         let mut a = Array::default();
         a.push(Resp::SimpleString(SimpleString::new("OK")));
         a.push(Resp::Integer(Integer::new(123)));
         a.push(Resp::BulkString(BulkString::new("foobar")));
         assert_eq!(r, Resp::Array(a));
 
-        let buf = b"*0\r\n";
-        let r: Resp = buf.to_vec().try_into().unwrap();
+        let buf: &[u8] = b"*0\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r: Resp = Resp::try_from(&mut bytes).unwrap();
         let a = Array::default();
         assert_eq!(r, Resp::Array(a));
 
-        let buf = b"*3\r\n+OK\r\n:123\r\n$6\r\nfoobar\r";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b"*3\r\n+OK\r\n:123\r\n$6\r\nfoobar\r";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
 
-        let buf = b"*3\r\n+OK\r\n:123\r\n$6\r\nfoobar\r\n+OK\r\n";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b"*3\r\n+OK\r\n:123\r\n$6\r\nfoobar\r\n+OK\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
     }
 
     #[test]
     fn test_deserialize_set() {
-        let buf = b"~2\r\n+value1\r\n#f\r\n";
-        let r: Resp = buf.to_vec().try_into().unwrap();
+        let buf: &[u8] = b"~2\r\n+value1\r\n#f\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r: Resp = Resp::try_from(&mut bytes).unwrap();
         let mut s = Set::default();
         s.insert(Key::SimpleString(SimpleString::new("value1")));
         s.insert(Key::Boolean(Boolean::new(false)));
         assert_eq!(r, Resp::Set(s));
 
-        let buf = b"~0\r\n";
-        let r: Resp = buf.to_vec().try_into().unwrap();
+        let buf: &[u8] = b"~0\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r: Resp = Resp::try_from(&mut bytes).unwrap();
         let s = Set::default();
         assert_eq!(r, Resp::Set(s));
 
-        let buf = b"~2\r\n+value1\r\n#f\r";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b"~2\r\n+value1\r\n#f\r";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
 
-        let buf = b"~2\r\n+value1\r\n#f\r\n+OK\r\n";
-        let r = Resp::try_from(buf.to_vec());
+        let buf: &[u8] = b"~2\r\n+value1\r\n#f\r\n+OK\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes);
         assert!(r.is_err());
     }
 }
