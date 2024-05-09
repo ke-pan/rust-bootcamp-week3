@@ -49,6 +49,9 @@ impl Serialize for Integer {
 
 impl Serialize for BulkString {
     fn serialize(&self) -> Vec<u8> {
+        if self.is_null {
+            return b"$-1\r\n".to_vec();
+        }
         format!("${}\r\n{}\r\n", self.value.len(), self.value)
             .as_bytes()
             .to_vec()
@@ -91,6 +94,9 @@ impl Serialize for BulkError {
 
 impl Serialize for Array {
     fn serialize(&self) -> Vec<u8> {
+        if self.is_null {
+            return b"*-1\r\n".to_vec();
+        }
         let mut result = format!("*{}\r\n", self.value.len()).as_bytes().to_vec();
         for item in &self.value {
             result.extend(item.serialize());
@@ -154,15 +160,14 @@ mod tests {
 
     #[test]
     fn test_serialize_bulk_string() {
-        let s = BulkString {
-            value: "foobar".to_string(),
-        };
+        let s = BulkString::new("foobar", false);
         assert_eq!(s.serialize(), "$6\r\nfoobar\r\n".as_bytes());
 
-        let s = BulkString {
-            value: "".to_string(),
-        };
+        let s = BulkString::new("", false);
         assert_eq!(s.serialize(), "$0\r\n\r\n".as_bytes());
+
+        let s = BulkString::new("", true);
+        assert_eq!(s.serialize(), "$-1\r\n".as_bytes());
     }
 
     #[test]
@@ -209,13 +214,17 @@ mod tests {
             value: vec![
                 Resp::SimpleString(SimpleString::new("OK")),
                 Resp::Integer(Integer::new(123)),
-                Resp::BulkString(BulkString::new("foobar")),
+                Resp::BulkString(BulkString::new("foobar", false)),
             ],
+            is_null: false,
         };
         assert_eq!(
             s.serialize(),
             "*3\r\n+OK\r\n:123\r\n$6\r\nfoobar\r\n".as_bytes()
         );
+
+        let s = Array::new(vec![], true);
+        assert_eq!(s.serialize(), "*-1\r\n".as_bytes());
     }
 
     #[test]

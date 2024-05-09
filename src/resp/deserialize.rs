@@ -146,20 +146,26 @@ fn deserialize_bulk_string(buf: &mut BytesMut) -> Result<BulkString, RespDeseria
     let bytes = find_crlf(buf)?;
     let len = match from_utf8(bytes.as_ref()) {
         Ok(s) => s
-            .parse::<usize>()
+            .parse::<i64>()
             .map_err(|_| RespDeserializeError::WrongFormat)?,
         Err(e) => return Err(RespDeserializeError::Utf8Error(e)),
     };
-    if buf.len() < len + 2 {
+    if len == -1 {
+        return Ok(BulkString::new("", true));
+    }
+    if len < 0 {
+        return Err(RespDeserializeError::WrongFormat);
+    }
+    if (buf.len() as i64) < len + 2 {
         return Err(RespDeserializeError::NotComplete);
     }
-    let res = buf.split_to(len);
+    let res = buf.split_to(len as usize);
     if buf[0] != b'\r' || buf[1] != b'\n' {
         return Err(RespDeserializeError::WrongFormat);
     }
     buf.advance(2);
     match from_utf8(res.as_ref()) {
-        Ok(s) => Ok(BulkString::new(s)),
+        Ok(s) => Ok(BulkString::new(s, false)),
         Err(e) => Err(RespDeserializeError::Utf8Error(e)),
     }
 }
@@ -224,10 +230,16 @@ fn deserialize_array(buf: &mut BytesMut) -> Result<Array, RespDeserializeError> 
     let bytes = find_crlf(buf)?;
     let len = match from_utf8(bytes.as_ref()) {
         Ok(s) => s
-            .parse::<usize>()
+            .parse::<i64>()
             .map_err(|_| RespDeserializeError::WrongFormat)?,
         Err(e) => return Err(RespDeserializeError::Utf8Error(e)),
     };
+    if len == -1 {
+        return Ok(Array::new(vec![], true));
+    }
+    if len < 0 {
+        return Err(RespDeserializeError::WrongFormat);
+    }
     let mut array = Array::default();
     for _ in 0..len {
         let value = _try_from(buf)?;
@@ -352,7 +364,17 @@ mod tests {
         let buf: &[u8] = b"$6\r\nfoobar\r\n";
         let mut bytes = BytesMut::from(buf);
         let r = Resp::try_from(&mut bytes).unwrap();
-        assert_eq!(r, Resp::BulkString(BulkString::new("foobar")));
+        assert_eq!(r, Resp::BulkString(BulkString::new("foobar", false)));
+
+        let buf: &[u8] = b"$0\r\n\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes).unwrap();
+        assert_eq!(r, Resp::BulkString(BulkString::new("", false)));
+
+        let buf: &[u8] = b"$-1\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r = Resp::try_from(&mut bytes).unwrap();
+        assert_eq!(r, Resp::BulkString(BulkString::new("", true)));
 
         let buf: &[u8] = b"$6\r\nfoobar\r";
         let mut bytes = BytesMut::from(buf);
@@ -460,13 +482,19 @@ mod tests {
         let mut a = Array::default();
         a.push(Resp::SimpleString(SimpleString::new("OK")));
         a.push(Resp::Integer(Integer::new(123)));
-        a.push(Resp::BulkString(BulkString::new("foobar")));
+        a.push(Resp::BulkString(BulkString::new("foobar", false)));
         assert_eq!(r, Resp::Array(a));
 
         let buf: &[u8] = b"*0\r\n";
         let mut bytes = BytesMut::from(buf);
         let r: Resp = Resp::try_from(&mut bytes).unwrap();
         let a = Array::default();
+        assert_eq!(r, Resp::Array(a));
+
+        let buf: &[u8] = b"*-1\r\n";
+        let mut bytes = BytesMut::from(buf);
+        let r: Resp = Resp::try_from(&mut bytes).unwrap();
+        let a = Array::new(vec![], true);
         assert_eq!(r, Resp::Array(a));
 
         let buf: &[u8] = b"*3\r\n+OK\r\n:123\r\n$6\r\nfoobar\r";

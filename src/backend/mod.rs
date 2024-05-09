@@ -51,7 +51,7 @@ mod tests {
     #[test]
     fn test_storage() {
         let storage = Storage::new();
-        let key = Key::BulkString(BulkString::new("key"));
+        let key = Key::BulkString(BulkString::new("key", false));
         let value = Resp::Integer(Integer::new(42));
         let res = storage.execute(Command::Set(Set {
             key: key.clone(),

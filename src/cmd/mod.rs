@@ -120,8 +120,8 @@ mod tests {
     #[test]
     fn test_try_from_resp() {
         let mut arr = Array::default();
-        arr.push(Resp::BulkString(BulkString::new("GET")));
-        arr.push(Resp::BulkString(BulkString::new("key")));
+        arr.push(Resp::BulkString(BulkString::new("GET", false)));
+        arr.push(Resp::BulkString(BulkString::new("key", false)));
         let resp = Resp::Array(arr);
         let cmd = Command::try_from(resp).unwrap();
         match cmd {
@@ -129,7 +129,8 @@ mod tests {
                 assert_eq!(
                     key,
                     Key::BulkString(BulkString {
-                        value: "key".to_string()
+                        value: "key".to_string(),
+                        is_null: false
                     })
                 );
             }
@@ -137,8 +138,8 @@ mod tests {
         }
 
         let mut arr = Array::default();
-        arr.push(Resp::BulkString(BulkString::new("SET")));
-        arr.push(Resp::BulkString(BulkString::new("key")));
+        arr.push(Resp::BulkString(BulkString::new("SET", false)));
+        arr.push(Resp::BulkString(BulkString::new("key", false)));
         arr.push(Resp::Integer(Integer::new(1)));
         let resp = Resp::Array(arr);
         let cmd = Command::try_from(resp).unwrap();
@@ -147,7 +148,8 @@ mod tests {
                 assert_eq!(
                     key,
                     Key::BulkString(BulkString {
-                        value: "key".to_string()
+                        value: "key".to_string(),
+                        is_null: false
                     })
                 );
                 assert_eq!(value, Resp::Integer(Integer::new(1)));
@@ -156,14 +158,14 @@ mod tests {
         }
 
         let mut arr = Array::default();
-        arr.push(Resp::BulkString(BulkString::new("SET")));
-        arr.push(Resp::BulkString(BulkString::new("key")));
+        arr.push(Resp::BulkString(BulkString::new("SET", false)));
+        arr.push(Resp::BulkString(BulkString::new("key", false)));
         let resp = Resp::Array(arr);
         let cmd = Command::try_from(resp);
         assert!(cmd.is_err());
         assert_eq!(cmd.unwrap_err(), CommandError::WrongNumberOfArguments(2, 1));
 
-        let resp = Resp::BulkString(BulkString::new("SET"));
+        let resp = Resp::BulkString(BulkString::new("SET", false));
         let cmd = Command::try_from(resp);
         assert!(cmd.is_err());
         assert_eq!(cmd.unwrap_err(), CommandError::WrongFormat);

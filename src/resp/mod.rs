@@ -114,12 +114,14 @@ impl Integer {
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct BulkString {
     pub value: String,
+    pub is_null: bool,
 }
 
 impl BulkString {
     #[allow(dead_code)]
-    pub fn new<T: Into<String>>(value: T) -> Self {
+    pub fn new<T: Into<String>>(value: T, is_null: bool) -> Self {
         BulkString {
+            is_null,
             value: value.into(),
         }
     }
@@ -128,6 +130,13 @@ impl BulkString {
 #[derive(Debug, Default, Clone, PartialEq, PartialOrd)]
 pub struct Array {
     value: Vec<Resp>,
+    is_null: bool,
+}
+
+impl Array {
+    pub fn new(value: Vec<Resp>, is_null: bool) -> Self {
+        Array { value, is_null }
+    }
 }
 
 impl Deref for Array {
