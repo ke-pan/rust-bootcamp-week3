@@ -31,7 +31,6 @@ async fn process(socket: TcpStream, storage: &Storage) {
     loop {
         match frame.next().await {
             Some(Ok(cmd)) => {
-                info!("Got Command: {:?}", cmd);
                 let res = cmd.execute(storage);
                 match res {
                     Ok(resp) => {

@@ -5,7 +5,6 @@ use crate::{
 use bytes::BytesMut;
 use std::io;
 use tokio_util::codec::{Decoder, Encoder};
-use tracing::info;
 
 pub struct Codec;
 
@@ -14,7 +13,6 @@ impl Decoder for Codec {
     type Error = io::Error;
 
     fn decode(&mut self, buf: &mut BytesMut) -> Result<Option<Self::Item>, Self::Error> {
-        info!("Decoding buffer {:?}", String::from_utf8(buf.to_vec()));
         let resp = Resp::try_from(buf);
         match resp {
             Ok(resp) => {

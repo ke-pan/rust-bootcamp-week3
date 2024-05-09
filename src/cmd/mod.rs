@@ -19,6 +19,7 @@ pub enum CommandError {
 pub enum Command {
     Get(Get),
     Set(Set),
+    Echo(Echo),
     Cmd,
 }
 
@@ -31,6 +32,7 @@ impl Command {
         match self {
             Command::Get(c) => c.execute(executor),
             Command::Set(c) => c.execute(executor),
+            Command::Echo(c) => c.execute(executor),
             Command::Cmd => Ok(Resp::SimpleString(SimpleString::new("OK"))),
         }
     }
@@ -72,6 +74,13 @@ impl TryFrom<Resp> for Command {
                             }))
                         }
                         "COMMAND" => Ok(Command::Cmd),
+                        "ECHO" => {
+                            if iter.len() != 1 {
+                                return Err(CommandError::WrongNumberOfArguments(1, iter.len()));
+                            }
+                            let msg = iter.next().ok_or(CommandError::WrongFormat)?;
+                            Ok(Command::Echo(Echo { msg: msg.clone() }))
+                        }
                         cmd => Err(CommandError::UnsupportedCommand(cmd.to_string())),
                     },
                     _ => Err(CommandError::WrongFormat),
@@ -108,6 +117,17 @@ impl Set {
     fn execute(&self, executor: &dyn CommandExecutor) -> Result<Resp> {
         executor.execute(Command::Set(self.clone()))?;
         Ok(Resp::SimpleString(SimpleString::new("OK")))
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Echo {
+    pub msg: Resp,
+}
+
+impl Echo {
+    fn execute(&self, _executor: &dyn CommandExecutor) -> Result<Resp> {
+        Ok(self.msg.clone())
     }
 }
 
@@ -169,5 +189,26 @@ mod tests {
         let cmd = Command::try_from(resp);
         assert!(cmd.is_err());
         assert_eq!(cmd.unwrap_err(), CommandError::WrongFormat);
+    }
+
+    #[test]
+    fn test_parse_echo() {
+        let mut arr = Array::default();
+        arr.push(Resp::BulkString(BulkString::new("ECHO", false)));
+        arr.push(Resp::BulkString(BulkString::new("Hello World", false)));
+        let resp = Resp::Array(arr);
+        let cmd = Command::try_from(resp).unwrap();
+        match cmd {
+            Command::Echo(Echo { msg }) => {
+                assert_eq!(
+                    msg,
+                    Resp::BulkString(BulkString {
+                        value: "Hello World".to_string(),
+                        is_null: false
+                    })
+                );
+            }
+            _ => panic!("Expected ECHO"),
+        }
     }
 }
